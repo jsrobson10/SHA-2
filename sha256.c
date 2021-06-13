@@ -1,7 +1,4 @@
 
-#include <stdio.h>
-#include <stddef.h>
-
 #include "sha256.h"
 
 typedef SHA256_word word;
@@ -104,7 +101,7 @@ word SHA256_op_majority(word a, word b, word c)
 
 /* FUNCTIONS */
 
-void SHA256_op_copy(void* to, const void* from, size_t len)
+void SHA256_op_copy(void* to, const void* from, SHA256_size len)
 {
 	void* end = to + len;
 
@@ -182,7 +179,7 @@ void SHA256_init(SHA256* s)
 	s->size = 0;
 }
 
-void SHA256_update(SHA256* s, const char* data, size_t len)
+void SHA256_update(SHA256* s, const char* data, SHA256_size len)
 {
 	// process complete blocks as we update to make this streamable
 	while(len + s->upto >= sizeof(s->buffer))
@@ -215,9 +212,9 @@ void SHA256_update(SHA256* s, const char* data, size_t len)
 void SHA256_digest(SHA256* s, char* buffer)
 {
 	// pad the last chunk
-	size_t upto = s->upto;
-	size_t size = s->size + upto;
-	size_t size_bits = size * 8;
+	SHA256_size upto = s->upto;
+	SHA256_size size = s->size + upto;
+	SHA256_size size_bits = size * 8;
 
 	// add a 1 after the data
 	s->buffer[upto] = 1 << 7;
