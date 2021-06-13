@@ -1,18 +1,17 @@
 
-#include "sha256.h"
+#include "sha224.h"
 
-typedef SHA256_word word;
+typedef SHA224_word word;
 
 /* CONSTANTS */
 
-// square roots of first 8 primes
-const word SHA256_INIT[] =
+const word SHA224_INIT[] =
 {
-	0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+	0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4,
 };
 
-// cube roots of first 64 primes
-const word SHA256_CONST[] =
+// cube roots of the first 64 primes
+const word SHA224_CONST[] =
 {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,   
 	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 
@@ -26,7 +25,7 @@ const word SHA256_CONST[] =
 
 /* COMPOUND OPERATIONS */
 
-word SHA256_op_sigma0(word x)
+word SHA224_op_sigma0(word x)
 {
 	word a = (x >> 7) | (x << 25);
 	word b = (x >> 18) | (x << 14);
@@ -35,7 +34,7 @@ word SHA256_op_sigma0(word x)
 	return a ^ b ^ c;
 }
 
-word SHA256_op_sigma1(word x)
+word SHA224_op_sigma1(word x)
 {
 	word a = (x >> 17) | (x << 15);
 	word b = (x >> 19) | (x << 13);
@@ -44,7 +43,7 @@ word SHA256_op_sigma1(word x)
 	return a ^ b ^ c;
 }
 
-word SHA256_op_usigma0(word x)
+word SHA224_op_usigma0(word x)
 {
 	word a = (x >> 2) | (x << 30);
 	word b = (x >> 13) | (x << 19);
@@ -53,7 +52,7 @@ word SHA256_op_usigma0(word x)
 	return a ^ b ^ c;
 }
 
-word SHA256_op_usigma1(word x)
+word SHA224_op_usigma1(word x)
 {
 	word a = (x >> 6) | (x << 26);
 	word b = (x >> 11) | (x << 21);
@@ -62,19 +61,19 @@ word SHA256_op_usigma1(word x)
 	return a ^ b ^ c;
 }
 
-word SHA256_op_choice(word a, word b, word c)
+word SHA224_op_choice(word a, word b, word c)
 {
 	return (a & b) ^ (~a & c);
 }
 
-word SHA256_op_majority(word a, word b, word c)
+word SHA224_op_majority(word a, word b, word c)
 {
 	return (a & b) ^ (a & c) ^ (b & c);
 }
 
 /* FUNCTIONS */
 
-void SHA256_op_copy(void* to, const void* from, SHA256_size len)
+void SHA224_op_copy(void* to, const void* from, SHA224_size len)
 {
 	void* end = to + len;
 
@@ -87,7 +86,7 @@ void SHA256_op_copy(void* to, const void* from, SHA256_size len)
 	}
 }
 
-void SHA256_op_process_chunk(SHA256* s)
+void SHA224_op_process_chunk(SHA224* s)
 {
 	word* schedule = s->schedule;
 	char* schedule_c = (char*)schedule;
@@ -108,7 +107,7 @@ void SHA256_op_process_chunk(SHA256* s)
 	// fill in the last 64 words of the message schedule
 	for(int i = 16; i < 64; i++)
 	{
-		schedule[i] = SHA256_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA256_op_sigma0(schedule[i - 15]) + schedule[i - 16];
+		schedule[i] = SHA224_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA224_op_sigma0(schedule[i - 15]) + schedule[i - 16];
 	}
 
 	word words[8];
@@ -122,8 +121,8 @@ void SHA256_op_process_chunk(SHA256* s)
 	// compress the message schedule
 	for(int i = 0; i < 64; i++)
 	{
-		word w1 = SHA256_op_usigma1(words[4]) + SHA256_op_choice(words[4], words[5], words[6]) + words[7] + SHA256_CONST[i] + schedule[i];
-		word w2 = SHA256_op_usigma0(words[0]) + SHA256_op_majority(words[0], words[1], words[2]);
+		word w1 = SHA224_op_usigma1(words[4]) + SHA224_op_choice(words[4], words[5], words[6]) + words[7] + SHA224_CONST[i] + schedule[i];
+		word w2 = SHA224_op_usigma0(words[0]) + SHA224_op_majority(words[0], words[1], words[2]);
 
 		// move the words down
 		for(int i = 7; i > 0; i--)
@@ -143,15 +142,15 @@ void SHA256_op_process_chunk(SHA256* s)
 	}
 }
 
-void SHA256_init(SHA256* s)
+void SHA224_init(SHA224* s)
 {
-	SHA256_op_copy(s->words, SHA256_INIT, sizeof(word) * 8);
+	SHA224_op_copy(s->words, SHA224_INIT, sizeof(word) * 8);
 
 	s->upto = 0;
 	s->size = 0;
 }
 
-void SHA256_update(SHA256* s, const char* data, SHA256_size len)
+void SHA224_update(SHA224* s, const char* data, SHA224_size len)
 {
 	// process complete blocks as we update to make this streamable
 	while(len + s->upto >= sizeof(s->buffer))
@@ -165,9 +164,9 @@ void SHA256_update(SHA256* s, const char* data, SHA256_size len)
 		}
 
 		// move the data into the buffer
-		SHA256_op_copy(s->buffer + s->upto, data, a);
+		SHA224_op_copy(s->buffer + s->upto, data, a);
 
-		SHA256_op_process_chunk(s);
+		SHA224_op_process_chunk(s);
 
 		len -= a;
 		data += a;
@@ -177,16 +176,16 @@ void SHA256_update(SHA256* s, const char* data, SHA256_size len)
 	}
 
 	// add the smaller data to the end of the buffer
-	SHA256_op_copy(s->buffer + s->upto, data, len);
+	SHA224_op_copy(s->buffer + s->upto, data, len);
 	s->upto += len;
 }
 
-void SHA256_digest(SHA256* s, char* buffer)
+void SHA224_digest(SHA224* s, char* buffer)
 {
 	// pad the last chunk
-	SHA256_size upto = s->upto;
-	SHA256_size size = s->size + upto;
-	SHA256_size size_bits = size * 8;
+	SHA224_size upto = s->upto;
+	SHA224_size size = s->size + upto;
+	SHA224_size size_bits = size * 8;
 
 	// add a 1 after the data
 	s->buffer[upto] = 1 << 7;
@@ -209,7 +208,7 @@ void SHA256_digest(SHA256* s, char* buffer)
 		}
 
 		// process the first padded chunk
-		SHA256_op_process_chunk(s);
+		SHA224_op_process_chunk(s);
 
 		// fill the next buffer with zeros
 		for(int i = 0; i < 56; i++)
@@ -226,10 +225,10 @@ void SHA256_digest(SHA256* s, char* buffer)
 	}
 
 	// process the final padded chunk
-	SHA256_op_process_chunk(s);
+	SHA224_op_process_chunk(s);
 
 	// copy the words into the buffer
-	for(int i = 0; i < 8; i++)
+	for(int i = 0; i < 7; i++)
 	{
 		int i4 = i * 4;
 
