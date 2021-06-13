@@ -1,11 +1,10 @@
 
 #include <stdio.h>
 #include <stddef.h>
-#include <string.h>
 
 #include "sha256.h"
 
-typedef sha256_word word;
+typedef SHA256_word word;
 
 /* CONSTANTS */
 
@@ -57,7 +56,7 @@ const word SHA256_CONST[] =
 
 /* COMPOUND OPERATIONS */
 
-word sha256_sigma0(word x)
+word SHA256_op_sigma0(word x)
 {
 	word a = (x >> 7) | (x << 25);
 	word b = (x >> 18) | (x << 14);
@@ -66,7 +65,7 @@ word sha256_sigma0(word x)
 	return a ^ b ^ c;
 }
 
-word sha256_sigma1(word x)
+word SHA256_op_sigma1(word x)
 {
 	word a = (x >> 17) | (x << 15);
 	word b = (x >> 19) | (x << 13);
@@ -75,7 +74,7 @@ word sha256_sigma1(word x)
 	return a ^ b ^ c;
 }
 
-word sha256_usigma0(word x)
+word SHA256_op_usigma0(word x)
 {
 	word a = (x >> 2) | (x << 30);
 	word b = (x >> 13) | (x << 19);
@@ -84,7 +83,7 @@ word sha256_usigma0(word x)
 	return a ^ b ^ c;
 }
 
-word sha256_usigma1(word x)
+word SHA256_op_usigma1(word x)
 {
 	word a = (x >> 6) | (x << 26);
 	word b = (x >> 11) | (x << 21);
@@ -93,34 +92,32 @@ word sha256_usigma1(word x)
 	return a ^ b ^ c;
 }
 
-word sha256_choice(word a, word b, word c)
+word SHA256_op_choice(word a, word b, word c)
 {
 	return (a & b) ^ (~a & c);
 }
 
-word sha256_majority(word a, word b, word c)
+word SHA256_op_majority(word a, word b, word c)
 {
 	return (a & b) ^ (a & c) ^ (b & c);
 }
 
-/* MATH */
+/* FUNCTIONS */
 
-int min(int a, int b)
+void SHA256_op_copy(void* to, const void* from, size_t len)
 {
-	if(a < b)
-	{
-		return a;
-	}
+	void* end = to + len;
 
-	else
+	while(to < end)
 	{
-		return b;
+		*(char*)to = *(const char*)from;
+
+		to += 1;
+		from += 1;
 	}
 }
 
-/* FUNCTIONS */
-
-void sha256_process_chunk(sha256* s)
+void SHA256_op_process_chunk(SHA256* s)
 {
 	word schedule[64];
 
@@ -142,7 +139,7 @@ void sha256_process_chunk(sha256* s)
 	// fill in the last 64 words of the message schedule
 	for(int i = 16; i < 64; i++)
 	{
-		schedule[i] = sha256_sigma1(schedule[i - 2]) + schedule[i - 7] + sha256_sigma0(schedule[i - 15]) + schedule[i - 16];
+		schedule[i] = SHA256_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA256_op_sigma0(schedule[i - 15]) + schedule[i - 16];
 	}
 
 	word words[8];
@@ -156,8 +153,8 @@ void sha256_process_chunk(sha256* s)
 	// compress the message schedule
 	for(int i = 0; i < 64; i++)
 	{
-		word w1 = sha256_usigma1(words[4]) + sha256_choice(words[4], words[5], words[6]) + words[7] + SHA256_CONST[i] + schedule[i];
-		word w2 = sha256_usigma0(words[0]) + sha256_majority(words[0], words[1], words[2]);
+		word w1 = SHA256_op_usigma1(words[4]) + SHA256_op_choice(words[4], words[5], words[6]) + words[7] + SHA256_CONST[i] + schedule[i];
+		word w2 = SHA256_op_usigma0(words[0]) + SHA256_op_majority(words[0], words[1], words[2]);
 
 		// move the words down
 		for(int i = 7; i > 0; i--)
@@ -177,23 +174,31 @@ void sha256_process_chunk(sha256* s)
 	}
 }
 
-void sha256_init(sha256* s)
+void SHA256_init(SHA256* s)
 {
-	memcpy(s->words, SHA256_INIT, sizeof(word) * 8);
+	SHA256_op_copy(s->words, SHA256_INIT, sizeof(word) * 8);
 
 	s->upto = 0;
 	s->size = 0;
 }
 
-void sha256_update(sha256* s, const char* data, size_t len)
+void SHA256_update(SHA256* s, const char* data, size_t len)
 {
+	// process complete blocks as we update to make this streamable
 	while(len + s->upto >= sizeof(s->buffer))
 	{
-		int a = min(len, sizeof(s->buffer) - s->upto);
+		// calculate the amount of data to add to the buffer but dont overflow
+		int a = sizeof(s->buffer) - s->upto;
 
-		memcpy(s->buffer + s->upto, data, a);
+		if(len < a)
+		{
+			a = len;
+		}
 
-		sha256_process_chunk(s);
+		// move the data into the buffer
+		SHA256_op_copy(s->buffer + s->upto, data, a);
+
+		SHA256_op_process_chunk(s);
 
 		len -= a;
 		data += a;
@@ -202,11 +207,12 @@ void sha256_update(sha256* s, const char* data, size_t len)
 		s->size += sizeof(s->buffer);
 	}
 
-	memcpy(s->buffer + s->upto, data, len);
+	// add the smaller data to the end of the buffer
+	SHA256_op_copy(s->buffer + s->upto, data, len);
 	s->upto += len;
 }
 
-void sha256_digest(sha256* s, char* buffer)
+void SHA256_digest(SHA256* s, char* buffer)
 {
 	// pad the last chunk
 	size_t upto = s->upto;
@@ -233,8 +239,8 @@ void sha256_digest(sha256* s, char* buffer)
 			s->buffer[i] = (char)0;
 		}
 
-		// process the padded chunk
-		sha256_process_chunk(s);
+		// process the first padded chunk
+		SHA256_op_process_chunk(s);
 
 		// fill the next buffer with zeros
 		for(int i = 0; i < 56; i++)
@@ -250,7 +256,8 @@ void sha256_digest(sha256* s, char* buffer)
 		size_bits >>= 8;
 	}
 
-	sha256_process_chunk(s);
+	// process the final padded chunk
+	SHA256_op_process_chunk(s);
 
 	// copy the words into the buffer
 	for(int i = 0; i < 8; i++)
