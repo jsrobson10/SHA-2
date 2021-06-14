@@ -135,7 +135,7 @@ void SHA384_op_process_chunk(SHA384* s)
 	SHA384_word h = s->values[7];
 
 	// compress the message schedule
-	for(int i = 0; i < 64; i++)
+	for(int i = 0; i < 80; i++)
 	{
 		SHA384_word w1 = SHA384_op_usigma1(e) + SHA384_op_choice(e, f, g) + h + SHA384_CONST[i] + schedule[i];
 		SHA384_word w2 = SHA384_op_usigma0(a) + SHA384_op_majority(a, b, c);
@@ -144,10 +144,11 @@ void SHA384_op_process_chunk(SHA384* s)
 		h = g;
 		g = f;
 		f = e;
-		e = w1;
+		e = d + w1;
 		d = c;
 		c = b;
-		b = w1 + w2;
+		b = a;
+		a = w1 + w2;
 	}
 
 	// add the new values to the initial values

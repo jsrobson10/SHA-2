@@ -128,10 +128,11 @@ void SHA256_op_process_chunk(SHA256* s)
 		h = g;
 		g = f;
 		f = e;
-		e = w1;
+		e = d + w1;
 		d = c;
 		c = b;
-		b = w1 + w2;
+		b = a;
+		a = w1 + w2;
 	}
 
 	// add the new values to the initial values
