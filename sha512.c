@@ -1,19 +1,17 @@
 
 #include "sha512.h"
 
-typedef SHA512_word word;
-
 /* CONSTANTS */
 
 // square roots of first 8 primes
-const word SHA512_INIT[] =
+const SHA512_word SHA512_INIT[] =
 {
 	0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
 	0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179,
 };
 
 // cube roots of first 80 primes
-const word SHA512_CONST[] =
+const SHA512_word SHA512_CONST[] =
 {
 	0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
 	0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118,
@@ -39,48 +37,48 @@ const word SHA512_CONST[] =
 
 /* COMPOUND OPERATIONS */
 
-word SHA512_op_sigma0(word x)
+SHA512_word SHA512_op_sigma0(SHA512_word x)
 {
-	word a = (x >> 1) | (x << 63);
-	word b = (x >> 8) | (x << 56);
-	word c = x >> 7;
+	SHA512_word a = (x >> 1) | (x << 63);
+	SHA512_word b = (x >> 8) | (x << 56);
+	SHA512_word c = x >> 7;
 
 	return a ^ b ^ c;
 }
 
-word SHA512_op_sigma1(word x)
+SHA512_word SHA512_op_sigma1(SHA512_word x)
 {
-	word a = (x >> 19) | (x << 45);
-	word b = (x >> 61) | (x << 3);
-	word c = x >> 6;
+	SHA512_word a = (x >> 19) | (x << 45);
+	SHA512_word b = (x >> 61) | (x << 3);
+	SHA512_word c = x >> 6;
 
 	return a ^ b ^ c;
 }
 
-word SHA512_op_usigma0(word x)
+SHA512_word SHA512_op_usigma0(SHA512_word x)
 {
-	word a = (x >> 28) | (x << 36);
-	word b = (x >> 34) | (x << 30);
-	word c = (x >> 39) | (x << 25);
+	SHA512_word a = (x >> 28) | (x << 36);
+	SHA512_word b = (x >> 34) | (x << 30);
+	SHA512_word c = (x >> 39) | (x << 25);
 
 	return a ^ b ^ c;
 }
 
-word SHA512_op_usigma1(word x)
+SHA512_word SHA512_op_usigma1(SHA512_word x)
 {
-	word a = (x >> 14) | (x << 50);
-	word b = (x >> 18) | (x << 46);
-	word c = (x >> 41) | (x << 23);
+	SHA512_word a = (x >> 14) | (x << 50);
+	SHA512_word b = (x >> 18) | (x << 46);
+	SHA512_word c = (x >> 41) | (x << 23);
 
 	return a ^ b ^ c;
 }
 
-word SHA512_op_choice(word a, word b, word c)
+SHA512_word SHA512_op_choice(SHA512_word a, SHA512_word b, SHA512_word c)
 {
 	return (a & b) ^ (~a & c);
 }
 
-word SHA512_op_majority(word a, word b, word c)
+SHA512_word SHA512_op_majority(SHA512_word a, SHA512_word b, SHA512_word c)
 {
 	return (a & b) ^ (a & c) ^ (b & c);
 }
@@ -102,22 +100,21 @@ void SHA512_op_copy(void* to, const void* from, SHA512_size len)
 
 void SHA512_op_process_chunk(SHA512* s)
 {
-	word* schedule = s->schedule;
-	char* schedule_c = (char*)schedule;
+	SHA512_word* schedule = s->schedule;
 
 	// copy all the data over to the schedule accounting for endianness
 	for(int i = 0; i < 16; i++)
 	{
 		int i8 = i * 8;
 
-		word w1 = s->buffer[i8] & 255;
-		word w2 = s->buffer[i8+1] & 255;
-		word w3 = s->buffer[i8+2] & 255;
-		word w4 = s->buffer[i8+3] & 255;
-		word w5 = s->buffer[i8+4] & 255;
-		word w6 = s->buffer[i8+5] & 255;
-		word w7 = s->buffer[i8+6] & 255;
-		word w8 = s->buffer[i8+7] & 255;
+		SHA512_word w1 = s->buffer[i8] & 255;
+		SHA512_word w2 = s->buffer[i8+1] & 255;
+		SHA512_word w3 = s->buffer[i8+2] & 255;
+		SHA512_word w4 = s->buffer[i8+3] & 255;
+		SHA512_word w5 = s->buffer[i8+4] & 255;
+		SHA512_word w6 = s->buffer[i8+5] & 255;
+		SHA512_word w7 = s->buffer[i8+6] & 255;
+		SHA512_word w8 = s->buffer[i8+7] & 255;
 
 		schedule[i] = (w1 << 56) | (w2 << 48) | (w3 << 40) | (w4 << 32) | (w5 << 24) | (w6 << 16) | (w7 << 8) | w8;
 	}
@@ -128,41 +125,46 @@ void SHA512_op_process_chunk(SHA512* s)
 		schedule[i] = SHA512_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA512_op_sigma0(schedule[i - 15]) + schedule[i - 16];
 	}
 
-	word words[8];
-
-	// make a copy of words
-	for(int i = 0; i < 8; i++)
-	{
-		words[i] = s->words[i];
-	}
+	// make a copy of the values
+	SHA512_word a = s->values[0];
+	SHA512_word b = s->values[1];
+	SHA512_word c = s->values[2];
+	SHA512_word d = s->values[3];
+	SHA512_word e = s->values[4];
+	SHA512_word f = s->values[5];
+	SHA512_word g = s->values[6];
+	SHA512_word h = s->values[7];
 
 	// compress the message schedule
-	for(int i = 0; i < 80; i++)
+	for(int i = 0; i < 64; i++)
 	{
-		word w1 = SHA512_op_usigma1(words[4]) + SHA512_op_choice(words[4], words[5], words[6]) + words[7] + SHA512_CONST[i] + schedule[i];
-		word w2 = SHA512_op_usigma0(words[0]) + SHA512_op_majority(words[0], words[1], words[2]);
+		SHA512_word w1 = SHA512_op_usigma1(e) + SHA512_op_choice(e, f, g) + h + SHA512_CONST[i] + schedule[i];
+		SHA512_word w2 = SHA512_op_usigma0(a) + SHA512_op_majority(a, b, c);
 
-		// move the words down
-		for(int i = 7; i > 0; i--)
-		{
-			words[i] = words[i-1];
-		}
-
-		// change the words
-		words[0] = w1 + w2;
-		words[4] += w1;
+		// move the values down and change them
+		h = g;
+		g = f;
+		f = e;
+		e = w1;
+		d = c;
+		c = b;
+		b = w1 + w2;
 	}
 
-	// add the new words to the initial values
-	for(int i = 0; i < 8; i++)
-	{
-		s->words[i] += words[i];
-	}
+	// add the new values to the initial values
+	s->values[0] += a;
+	s->values[1] += b;
+	s->values[2] += c;
+	s->values[3] += d;
+	s->values[4] += e;
+	s->values[5] += f;
+	s->values[6] += g;
+	s->values[7] += h;
 }
 
 void SHA512_init(SHA512* s)
 {
-	SHA512_op_copy(s->words, SHA512_INIT, sizeof(word) * 8);
+	SHA512_op_copy(s->values, SHA512_INIT, sizeof(SHA512_word) * 8);
 
 	s->upto = 0;
 	s->size = 0;
@@ -250,13 +252,13 @@ void SHA512_digest(SHA512* s, char* buffer)
 	{
 		int i8 = i * 8;
 
-		buffer[i8  ] = (s->words[i] >> 56) & 255;
-		buffer[i8+1] = (s->words[i] >> 48) & 255;
-		buffer[i8+2] = (s->words[i] >> 40) & 255;
-		buffer[i8+3] = (s->words[i] >> 32) & 255;
-		buffer[i8+4] = (s->words[i] >> 24) & 255;
-		buffer[i8+5] = (s->words[i] >> 16) & 255;
-		buffer[i8+6] = (s->words[i] >> 8 ) & 255;
-		buffer[i8+7] = (s->words[i]      ) & 255;
+		buffer[i8  ] = (s->values[i] >> 56) & 255;
+		buffer[i8+1] = (s->values[i] >> 48) & 255;
+		buffer[i8+2] = (s->values[i] >> 40) & 255;
+		buffer[i8+3] = (s->values[i] >> 32) & 255;
+		buffer[i8+4] = (s->values[i] >> 24) & 255;
+		buffer[i8+5] = (s->values[i] >> 16) & 255;
+		buffer[i8+6] = (s->values[i] >> 8 ) & 255;
+		buffer[i8+7] = (s->values[i]      ) & 255;
 	}
 }

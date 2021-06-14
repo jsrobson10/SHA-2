@@ -10,7 +10,7 @@ typedef struct SHA224 SHA224;
 struct SHA224
 {
 	SHA224_word schedule[64];
-	SHA224_word words[8];
+	SHA224_word values[8];
 	char buffer[64];
 	SHA224_size size;
 	short upto;

@@ -10,7 +10,7 @@ typedef struct SHA384 SHA384;
 struct SHA384
 {
 	SHA384_word schedule[80];
-	SHA384_word words[8];
+	SHA384_word values[8];
 	char buffer[128];
 	SHA384_size size;
 	short upto;

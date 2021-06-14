@@ -1,17 +1,15 @@
 
 #include "sha224.h"
 
-typedef SHA224_word word;
-
 /* CONSTANTS */
 
-const word SHA224_INIT[] =
+const SHA224_word SHA224_INIT[] =
 {
 	0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4,
 };
 
 // cube roots of the first 64 primes
-const word SHA224_CONST[] =
+const SHA224_word SHA224_CONST[] =
 {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,   
 	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 
@@ -25,48 +23,48 @@ const word SHA224_CONST[] =
 
 /* COMPOUND OPERATIONS */
 
-word SHA224_op_sigma0(word x)
+SHA224_word SHA224_op_sigma0(SHA224_word x)
 {
-	word a = (x >> 7) | (x << 25);
-	word b = (x >> 18) | (x << 14);
-	word c = x >> 3;
+	SHA224_word a = (x >> 7) | (x << 25);
+	SHA224_word b = (x >> 18) | (x << 14);
+	SHA224_word c = x >> 3;
 
 	return a ^ b ^ c;
 }
 
-word SHA224_op_sigma1(word x)
+SHA224_word SHA224_op_sigma1(SHA224_word x)
 {
-	word a = (x >> 17) | (x << 15);
-	word b = (x >> 19) | (x << 13);
-	word c = x >> 10;
+	SHA224_word a = (x >> 17) | (x << 15);
+	SHA224_word b = (x >> 19) | (x << 13);
+	SHA224_word c = x >> 10;
 
 	return a ^ b ^ c;
 }
 
-word SHA224_op_usigma0(word x)
+SHA224_word SHA224_op_usigma0(SHA224_word x)
 {
-	word a = (x >> 2) | (x << 30);
-	word b = (x >> 13) | (x << 19);
-	word c = (x >> 22) | (x << 10);
+	SHA224_word a = (x >> 2) | (x << 30);
+	SHA224_word b = (x >> 13) | (x << 19);
+	SHA224_word c = (x >> 22) | (x << 10);
 
 	return a ^ b ^ c;
 }
 
-word SHA224_op_usigma1(word x)
+SHA224_word SHA224_op_usigma1(SHA224_word x)
 {
-	word a = (x >> 6) | (x << 26);
-	word b = (x >> 11) | (x << 21);
-	word c = (x >> 25) | (x << 7);
+	SHA224_word a = (x >> 6) | (x << 26);
+	SHA224_word b = (x >> 11) | (x << 21);
+	SHA224_word c = (x >> 25) | (x << 7);
 
 	return a ^ b ^ c;
 }
 
-word SHA224_op_choice(word a, word b, word c)
+SHA224_word SHA224_op_choice(SHA224_word a, SHA224_word b, SHA224_word c)
 {
 	return (a & b) ^ (~a & c);
 }
 
-word SHA224_op_majority(word a, word b, word c)
+SHA224_word SHA224_op_majority(SHA224_word a, SHA224_word b, SHA224_word c)
 {
 	return (a & b) ^ (a & c) ^ (b & c);
 }
@@ -88,18 +86,17 @@ void SHA224_op_copy(void* to, const void* from, SHA224_size len)
 
 void SHA224_op_process_chunk(SHA224* s)
 {
-	word* schedule = s->schedule;
-	char* schedule_c = (char*)schedule;
+	SHA224_word* schedule = s->schedule;
 
 	// copy all the data over to the schedule accounting for endianness
 	for(int i = 0; i < 16; i++)
 	{
 		int i4 = i * 4;
 
-		word w1 = s->buffer[i4] & 255;
-		word w2 = s->buffer[i4+1] & 255;
-		word w3 = s->buffer[i4+2] & 255;
-		word w4 = s->buffer[i4+3] & 255;
+		SHA224_word w1 = s->buffer[i4] & 255;
+		SHA224_word w2 = s->buffer[i4+1] & 255;
+		SHA224_word w3 = s->buffer[i4+2] & 255;
+		SHA224_word w4 = s->buffer[i4+3] & 255;
 
 		schedule[i] = (w1 << 24) | (w2 << 16) | (w3 << 8) | w4;
 	}
@@ -110,41 +107,46 @@ void SHA224_op_process_chunk(SHA224* s)
 		schedule[i] = SHA224_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA224_op_sigma0(schedule[i - 15]) + schedule[i - 16];
 	}
 
-	word words[8];
-
-	// make a copy of words
-	for(int i = 0; i < 8; i++)
-	{
-		words[i] = s->words[i];
-	}
+	// make a copy of the values
+	SHA224_word a = s->values[0];
+	SHA224_word b = s->values[1];
+	SHA224_word c = s->values[2];
+	SHA224_word d = s->values[3];
+	SHA224_word e = s->values[4];
+	SHA224_word f = s->values[5];
+	SHA224_word g = s->values[6];
+	SHA224_word h = s->values[7];
 
 	// compress the message schedule
 	for(int i = 0; i < 64; i++)
 	{
-		word w1 = SHA224_op_usigma1(words[4]) + SHA224_op_choice(words[4], words[5], words[6]) + words[7] + SHA224_CONST[i] + schedule[i];
-		word w2 = SHA224_op_usigma0(words[0]) + SHA224_op_majority(words[0], words[1], words[2]);
+		SHA224_word w1 = SHA224_op_usigma1(e) + SHA224_op_choice(e, f, g) + h + SHA224_CONST[i] + schedule[i];
+		SHA224_word w2 = SHA224_op_usigma0(a) + SHA224_op_majority(a, b, c);
 
-		// move the words down
-		for(int i = 7; i > 0; i--)
-		{
-			words[i] = words[i-1];
-		}
-
-		// change the words
-		words[0] = w1 + w2;
-		words[4] += w1;
+		// move the values down and change them
+		h = g;
+		g = f;
+		f = e;
+		e = w1;
+		d = c;
+		c = b;
+		b = w1 + w2;
 	}
 
-	// add the new words to the initial values
-	for(int i = 0; i < 8; i++)
-	{
-		s->words[i] += words[i];
-	}
+	// add the new values to the initial values
+	s->values[0] += a;
+	s->values[1] += b;
+	s->values[2] += c;
+	s->values[3] += d;
+	s->values[4] += e;
+	s->values[5] += f;
+	s->values[6] += g;
+	s->values[7] += h;
 }
 
 void SHA224_init(SHA224* s)
 {
-	SHA224_op_copy(s->words, SHA224_INIT, sizeof(word) * 8);
+	SHA224_op_copy(s->values, SHA224_INIT, sizeof(SHA224_word) * 8);
 
 	s->upto = 0;
 	s->size = 0;
@@ -232,9 +234,9 @@ void SHA224_digest(SHA224* s, char* buffer)
 	{
 		int i4 = i * 4;
 
-		buffer[i4  ] = (s->words[i] >> 24) & 255;
-		buffer[i4+1] = (s->words[i] >> 16) & 255;
-		buffer[i4+2] = (s->words[i] >> 8 ) & 255;
-		buffer[i4+3] = (s->words[i]      ) & 255;
+		buffer[i4  ] = (s->values[i] >> 24) & 255;
+		buffer[i4+1] = (s->values[i] >> 16) & 255;
+		buffer[i4+2] = (s->values[i] >> 8 ) & 255;
+		buffer[i4+3] = (s->values[i]      ) & 255;
 	}
 }

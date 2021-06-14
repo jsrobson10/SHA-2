@@ -10,7 +10,7 @@ typedef struct SHA256 SHA256;
 struct SHA256
 {
 	SHA256_word schedule[64];
-	SHA256_word words[8];
+	SHA256_word values[8];
 	char buffer[64];
 	SHA256_size size;
 	short upto;

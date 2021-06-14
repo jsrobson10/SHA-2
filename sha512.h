@@ -10,7 +10,7 @@ typedef struct SHA512 SHA512;
 struct SHA512
 {
 	SHA512_word schedule[80];
-	SHA512_word words[8];
+	SHA512_word values[8];
 	char buffer[128];
 	SHA512_size size;
 	short upto;

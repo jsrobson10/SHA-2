@@ -1,18 +1,16 @@
 
 #include "sha384.h"
 
-typedef SHA384_word word;
-
 /* CONSTANTS */
 
-const word SHA384_INIT[] =
+const SHA384_word SHA384_INIT[] =
 {
 	0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17, 0x152fecd8f70e5939,
 	0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4,
 };
 
 // cube roots of the first 80 primes
-const word SHA384_CONST[] =
+const SHA384_word SHA384_CONST[] =
 {
 	0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
 	0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118,
@@ -38,48 +36,48 @@ const word SHA384_CONST[] =
 
 /* COMPOUND OPERATIONS */
 
-word SHA384_op_sigma0(word x)
+SHA384_word SHA384_op_sigma0(SHA384_word x)
 {
-	word a = (x >> 1) | (x << 63);
-	word b = (x >> 8) | (x << 56);
-	word c = x >> 7;
+	SHA384_word a = (x >> 1) | (x << 63);
+	SHA384_word b = (x >> 8) | (x << 56);
+	SHA384_word c = x >> 7;
 
 	return a ^ b ^ c;
 }
 
-word SHA384_op_sigma1(word x)
+SHA384_word SHA384_op_sigma1(SHA384_word x)
 {
-	word a = (x >> 19) | (x << 45);
-	word b = (x >> 61) | (x << 3);
-	word c = x >> 6;
+	SHA384_word a = (x >> 19) | (x << 45);
+	SHA384_word b = (x >> 61) | (x << 3);
+	SHA384_word c = x >> 6;
 
 	return a ^ b ^ c;
 }
 
-word SHA384_op_usigma0(word x)
+SHA384_word SHA384_op_usigma0(SHA384_word x)
 {
-	word a = (x >> 28) | (x << 36);
-	word b = (x >> 34) | (x << 30);
-	word c = (x >> 39) | (x << 25);
+	SHA384_word a = (x >> 28) | (x << 36);
+	SHA384_word b = (x >> 34) | (x << 30);
+	SHA384_word c = (x >> 39) | (x << 25);
 
 	return a ^ b ^ c;
 }
 
-word SHA384_op_usigma1(word x)
+SHA384_word SHA384_op_usigma1(SHA384_word x)
 {
-	word a = (x >> 14) | (x << 50);
-	word b = (x >> 18) | (x << 46);
-	word c = (x >> 41) | (x << 23);
+	SHA384_word a = (x >> 14) | (x << 50);
+	SHA384_word b = (x >> 18) | (x << 46);
+	SHA384_word c = (x >> 41) | (x << 23);
 
 	return a ^ b ^ c;
 }
 
-word SHA384_op_choice(word a, word b, word c)
+SHA384_word SHA384_op_choice(SHA384_word a, SHA384_word b, SHA384_word c)
 {
 	return (a & b) ^ (~a & c);
 }
 
-word SHA384_op_majority(word a, word b, word c)
+SHA384_word SHA384_op_majority(SHA384_word a, SHA384_word b, SHA384_word c)
 {
 	return (a & b) ^ (a & c) ^ (b & c);
 }
@@ -101,22 +99,21 @@ void SHA384_op_copy(void* to, const void* from, SHA384_size len)
 
 void SHA384_op_process_chunk(SHA384* s)
 {
-	word* schedule = s->schedule;
-	char* schedule_c = (char*)schedule;
+	SHA384_word* schedule = s->schedule;
 
 	// copy all the data over to the schedule accounting for endianness
 	for(int i = 0; i < 16; i++)
 	{
 		int i8 = i * 8;
 
-		word w1 = s->buffer[i8] & 255;
-		word w2 = s->buffer[i8+1] & 255;
-		word w3 = s->buffer[i8+2] & 255;
-		word w4 = s->buffer[i8+3] & 255;
-		word w5 = s->buffer[i8+4] & 255;
-		word w6 = s->buffer[i8+5] & 255;
-		word w7 = s->buffer[i8+6] & 255;
-		word w8 = s->buffer[i8+7] & 255;
+		SHA384_word w1 = s->buffer[i8] & 255;
+		SHA384_word w2 = s->buffer[i8+1] & 255;
+		SHA384_word w3 = s->buffer[i8+2] & 255;
+		SHA384_word w4 = s->buffer[i8+3] & 255;
+		SHA384_word w5 = s->buffer[i8+4] & 255;
+		SHA384_word w6 = s->buffer[i8+5] & 255;
+		SHA384_word w7 = s->buffer[i8+6] & 255;
+		SHA384_word w8 = s->buffer[i8+7] & 255;
 
 		schedule[i] = (w1 << 56) | (w2 << 48) | (w3 << 40) | (w4 << 32) | (w5 << 24) | (w6 << 16) | (w7 << 8) | w8;
 	}
@@ -127,41 +124,46 @@ void SHA384_op_process_chunk(SHA384* s)
 		schedule[i] = SHA384_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA384_op_sigma0(schedule[i - 15]) + schedule[i - 16];
 	}
 
-	word words[8];
-
-	// make a copy of words
-	for(int i = 0; i < 8; i++)
-	{
-		words[i] = s->words[i];
-	}
+	// make a copy of the values
+	SHA384_word a = s->values[0];
+	SHA384_word b = s->values[1];
+	SHA384_word c = s->values[2];
+	SHA384_word d = s->values[3];
+	SHA384_word e = s->values[4];
+	SHA384_word f = s->values[5];
+	SHA384_word g = s->values[6];
+	SHA384_word h = s->values[7];
 
 	// compress the message schedule
-	for(int i = 0; i < 80; i++)
+	for(int i = 0; i < 64; i++)
 	{
-		word w1 = SHA384_op_usigma1(words[4]) + SHA384_op_choice(words[4], words[5], words[6]) + words[7] + SHA384_CONST[i] + schedule[i];
-		word w2 = SHA384_op_usigma0(words[0]) + SHA384_op_majority(words[0], words[1], words[2]);
+		SHA384_word w1 = SHA384_op_usigma1(e) + SHA384_op_choice(e, f, g) + h + SHA384_CONST[i] + schedule[i];
+		SHA384_word w2 = SHA384_op_usigma0(a) + SHA384_op_majority(a, b, c);
 
-		// move the words down
-		for(int i = 7; i > 0; i--)
-		{
-			words[i] = words[i-1];
-		}
-
-		// change the words
-		words[0] = w1 + w2;
-		words[4] += w1;
+		// move the values down and change them
+		h = g;
+		g = f;
+		f = e;
+		e = w1;
+		d = c;
+		c = b;
+		b = w1 + w2;
 	}
 
-	// add the new words to the initial values
-	for(int i = 0; i < 8; i++)
-	{
-		s->words[i] += words[i];
-	}
+	// add the new values to the initial values
+	s->values[0] += a;
+	s->values[1] += b;
+	s->values[2] += c;
+	s->values[3] += d;
+	s->values[4] += e;
+	s->values[5] += f;
+	s->values[6] += g;
+	s->values[7] += h;
 }
 
 void SHA384_init(SHA384* s)
 {
-	SHA384_op_copy(s->words, SHA384_INIT, sizeof(word) * 8);
+	SHA384_op_copy(s->values, SHA384_INIT, sizeof(SHA384_word) * 8);
 
 	s->upto = 0;
 	s->size = 0;
@@ -249,13 +251,13 @@ void SHA384_digest(SHA384* s, char* buffer)
 	{
 		int i8 = i * 8;
 
-		buffer[i8  ] = (s->words[i] >> 56) & 255;
-		buffer[i8+1] = (s->words[i] >> 48) & 255;
-		buffer[i8+2] = (s->words[i] >> 40) & 255;
-		buffer[i8+3] = (s->words[i] >> 32) & 255;
-		buffer[i8+4] = (s->words[i] >> 24) & 255;
-		buffer[i8+5] = (s->words[i] >> 16) & 255;
-		buffer[i8+6] = (s->words[i] >> 8 ) & 255;
-		buffer[i8+7] = (s->words[i]      ) & 255;
+		buffer[i8  ] = (s->values[i] >> 56) & 255;
+		buffer[i8+1] = (s->values[i] >> 48) & 255;
+		buffer[i8+2] = (s->values[i] >> 40) & 255;
+		buffer[i8+3] = (s->values[i] >> 32) & 255;
+		buffer[i8+4] = (s->values[i] >> 24) & 255;
+		buffer[i8+5] = (s->values[i] >> 16) & 255;
+		buffer[i8+6] = (s->values[i] >> 8 ) & 255;
+		buffer[i8+7] = (s->values[i]      ) & 255;
 	}
 }

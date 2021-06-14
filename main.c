@@ -46,7 +46,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 char buffer[1024];
 
@@ -73,20 +72,21 @@ void display_bin(const char* num, size_t len)
 	}
 }
 
+SHA sha;
+
 int main(int cargs, const char** vargs)
 {
 	freopen(NULL, "rb", stdin);
 	
-	SHA* sha = (SHA*)malloc(sizeof(SHA));
-	SHA_init(sha);
+	SHA_init(&sha);
 
 	if(cargs == 1)
 	{
 		size_t len;
 
-		while(len = fread(buffer, 1, sizeof(buffer), stdin))
+		while((len = fread(buffer, 1, sizeof(buffer), stdin)))
 		{
-			SHA_update(sha, buffer, len);
+			SHA_update(&sha, buffer, len);
 		}
 	}
 
@@ -94,16 +94,14 @@ int main(int cargs, const char** vargs)
 	{
 		for(int i = 1; i < cargs - 1; i++)
 		{
-			SHA_update(sha, vargs[i], strlen(vargs[i]));
-			SHA_update(sha, " ", 1);
+			SHA_update(&sha, vargs[i], strlen(vargs[i]));
+			SHA_update(&sha, " ", 1);
 		}
 
-		SHA_update(sha, vargs[cargs - 1], strlen(vargs[cargs - 1]));
+		SHA_update(&sha, vargs[cargs - 1], strlen(vargs[cargs - 1]));
 	}
 
-	SHA_digest(sha, buffer);
-	free(sha);
-	
+	SHA_digest(&sha, buffer);
 	display_hex(buffer, SIZE);
 
 	printf("\n");

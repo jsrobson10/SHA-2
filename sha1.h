@@ -10,7 +10,7 @@ typedef struct SHA1 SHA1;
 struct SHA1
 {
 	SHA1_word schedule[80];
-	SHA1_word words[5];
+	SHA1_word values[5];
 	char buffer[64];
 	SHA1_size size;
 	short upto;
