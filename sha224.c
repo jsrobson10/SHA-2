@@ -21,54 +21,6 @@ const SHA224_word SHA224_CONST[] =
 	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2, 
 };
 
-/* COMPOUND OPERATIONS */
-
-SHA224_word SHA224_op_sigma0(SHA224_word x)
-{
-	SHA224_word a = (x >> 7) | (x << 25);
-	SHA224_word b = (x >> 18) | (x << 14);
-	SHA224_word c = x >> 3;
-
-	return a ^ b ^ c;
-}
-
-SHA224_word SHA224_op_sigma1(SHA224_word x)
-{
-	SHA224_word a = (x >> 17) | (x << 15);
-	SHA224_word b = (x >> 19) | (x << 13);
-	SHA224_word c = x >> 10;
-
-	return a ^ b ^ c;
-}
-
-SHA224_word SHA224_op_usigma0(SHA224_word x)
-{
-	SHA224_word a = (x >> 2) | (x << 30);
-	SHA224_word b = (x >> 13) | (x << 19);
-	SHA224_word c = (x >> 22) | (x << 10);
-
-	return a ^ b ^ c;
-}
-
-SHA224_word SHA224_op_usigma1(SHA224_word x)
-{
-	SHA224_word a = (x >> 6) | (x << 26);
-	SHA224_word b = (x >> 11) | (x << 21);
-	SHA224_word c = (x >> 25) | (x << 7);
-
-	return a ^ b ^ c;
-}
-
-SHA224_word SHA224_op_choice(SHA224_word a, SHA224_word b, SHA224_word c)
-{
-	return (a & b) ^ (~a & c);
-}
-
-SHA224_word SHA224_op_majority(SHA224_word a, SHA224_word b, SHA224_word c)
-{
-	return (a & b) ^ (a & c) ^ (b & c);
-}
-
 /* FUNCTIONS */
 
 void SHA224_op_copy(void* to, const void* from, SHA224_size len)
@@ -104,7 +56,11 @@ void SHA224_op_process_chunk(SHA224* s)
 	// fill in the last 64 words of the message schedule
 	for(int i = 16; i < 64; i++)
 	{
-		schedule[i] = SHA224_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA224_op_sigma0(schedule[i - 15]) + schedule[i - 16];
+		SHA224_word s1 = schedule[i - 2];
+		SHA224_word s2 = schedule[i - 15];
+		SHA224_word s3 = (s2 >> 7) ^ (s2 << 25) ^ (s2 >> 18) ^ (s2 << 14) ^ (s2 >> 3); // sigma0
+		SHA224_word s4 = (s1 >> 17) ^ (s1 << 15) ^ (s1 >> 19) ^ (s1 << 13) ^ (s1 >> 10); // sigma1
+		schedule[i] = s3 + s4 + schedule[i - 7] + schedule[i - 16];
 	}
 
 	// make a copy of the values
@@ -120,18 +76,20 @@ void SHA224_op_process_chunk(SHA224* s)
 	// compress the message schedule
 	for(int i = 0; i < 64; i++)
 	{
-		SHA224_word w1 = SHA224_op_usigma1(e) + SHA224_op_choice(e, f, g) + h + SHA224_CONST[i] + schedule[i];
-		SHA224_word w2 = SHA224_op_usigma0(a) + SHA224_op_majority(a, b, c);
+		SHA224_word s1 = (a >> 2) ^ (a << 30) ^ (a >> 13) ^ (a << 19) ^ (a >> 22) ^ (a << 10); // usigma0
+		SHA224_word s2 = (e >> 6) ^ (e << 26) ^ (e >> 11) ^ (e << 21) ^ (e >> 25) ^ (e << 7); // usigma1
+		SHA224_word t1 = s2 + ((e & f) ^ (~e & g)) + h + SHA224_CONST[i] + schedule[i];
+		SHA224_word t2 = s1 + ((a & b) ^ (a & c) ^ (b & c));
 
 		// move the values down and change them
 		h = g;
 		g = f;
 		f = e;
-		e = d + w1;
+		e = d + t1;
 		d = c;
 		c = b;
 		b = a;
-		a = w1 + w2;
+		a = t1 + t2;
 	}
 
 	// add the new values to the initial values

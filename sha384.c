@@ -121,7 +121,11 @@ void SHA384_op_process_chunk(SHA384* s)
 	// fill in the last 80 words of the message schedule
 	for(int i = 16; i < 80; i++)
 	{
-		schedule[i] = SHA384_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA384_op_sigma0(schedule[i - 15]) + schedule[i - 16];
+		SHA384_word s1 = schedule[i - 2];
+		SHA384_word s2 = schedule[i - 15];
+		SHA384_word s3 = (s2 >> 1) ^ (s2 << 63) ^ (s2 >> 8) ^ (s2 << 56) ^ (s2 >> 7); // sigma0
+		SHA384_word s4 = (s1 >> 19) ^ (s1 << 45) ^ (s1 >> 61) ^ (s1 << 3) ^ (s1 >> 6); // sigma1
+		schedule[i] = s3 + s4 + schedule[i - 7] + schedule[i - 16];
 	}
 
 	// make a copy of the values
@@ -137,18 +141,20 @@ void SHA384_op_process_chunk(SHA384* s)
 	// compress the message schedule
 	for(int i = 0; i < 80; i++)
 	{
-		SHA384_word w1 = SHA384_op_usigma1(e) + SHA384_op_choice(e, f, g) + h + SHA384_CONST[i] + schedule[i];
-		SHA384_word w2 = SHA384_op_usigma0(a) + SHA384_op_majority(a, b, c);
+		SHA384_word s1 = (a >> 28) ^ (a << 36) ^ (a >> 34) ^ (a << 30) ^ (a >> 39) ^ (a << 25); // usigma0
+		SHA384_word s2 = (e >> 14) ^ (e << 50) ^ (e >> 18) ^ (e << 46) ^ (e >> 41) ^ (e << 23); // usigma1
+		SHA384_word t1 = s2 + ((e & f) ^ (~e & g)) + h + SHA384_CONST[i] + schedule[i];
+		SHA384_word t2 = s1 + ((a & b) ^ (a & c) ^ (b & c));
 
 		// move the values down and change them
 		h = g;
 		g = f;
 		f = e;
-		e = d + w1;
+		e = d + t1;
 		d = c;
 		c = b;
 		b = a;
-		a = w1 + w2;
+		a = t1 + t2;
 	}
 
 	// add the new values to the initial values

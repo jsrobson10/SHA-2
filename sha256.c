@@ -22,54 +22,6 @@ const SHA256_word SHA256_CONST[] =
 	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2, 
 };
 
-/* COMPOUND OPERATIONS */
-
-SHA256_word SHA256_op_sigma0(SHA256_word x)
-{
-	SHA256_word a = (x >> 7) | (x << 25);
-	SHA256_word b = (x >> 18) | (x << 14);
-	SHA256_word c = x >> 3;
-
-	return a ^ b ^ c;
-}
-
-SHA256_word SHA256_op_sigma1(SHA256_word x)
-{
-	SHA256_word a = (x >> 17) | (x << 15);
-	SHA256_word b = (x >> 19) | (x << 13);
-	SHA256_word c = x >> 10;
-
-	return a ^ b ^ c;
-}
-
-SHA256_word SHA256_op_usigma0(SHA256_word x)
-{
-	SHA256_word a = (x >> 2) | (x << 30);
-	SHA256_word b = (x >> 13) | (x << 19);
-	SHA256_word c = (x >> 22) | (x << 10);
-
-	return a ^ b ^ c;
-}
-
-SHA256_word SHA256_op_usigma1(SHA256_word x)
-{
-	SHA256_word a = (x >> 6) | (x << 26);
-	SHA256_word b = (x >> 11) | (x << 21);
-	SHA256_word c = (x >> 25) | (x << 7);
-
-	return a ^ b ^ c;
-}
-
-SHA256_word SHA256_op_choice(SHA256_word a, SHA256_word b, SHA256_word c)
-{
-	return (a & b) ^ (~a & c);
-}
-
-SHA256_word SHA256_op_majority(SHA256_word a, SHA256_word b, SHA256_word c)
-{
-	return (a & b) ^ (a & c) ^ (b & c);
-}
-
 /* FUNCTIONS */
 
 void SHA256_op_copy(void* to, const void* from, SHA256_size len)
@@ -105,7 +57,11 @@ void SHA256_op_process_chunk(SHA256* s)
 	// fill in the last 64 words of the message schedule
 	for(int i = 16; i < 64; i++)
 	{
-		schedule[i] = SHA256_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA256_op_sigma0(schedule[i - 15]) + schedule[i - 16];
+		SHA256_word s1 = schedule[i - 2];
+		SHA256_word s2 = schedule[i - 15];
+		SHA256_word s3 = (s2 >> 7) ^ (s2 << 25) ^ (s2 >> 18) ^ (s2 << 14) ^ (s2 >> 3); // sigma0
+		SHA256_word s4 = (s1 >> 17) ^ (s1 << 15) ^ (s1 >> 19) ^ (s1 << 13) ^ (s1 >> 10); // sigma1
+		schedule[i] = s3 + s4 + schedule[i - 7] + schedule[i - 16];
 	}
 
 	// make a copy of the values
@@ -121,18 +77,20 @@ void SHA256_op_process_chunk(SHA256* s)
 	// compress the message schedule
 	for(int i = 0; i < 64; i++)
 	{
-		SHA256_word w1 = SHA256_op_usigma1(e) + SHA256_op_choice(e, f, g) + h + SHA256_CONST[i] + schedule[i];
-		SHA256_word w2 = SHA256_op_usigma0(a) + SHA256_op_majority(a, b, c);
+		SHA256_word s1 = (a >> 2) ^ (a << 30) ^ (a >> 13) ^ (a << 19) ^ (a >> 22) ^ (a << 10); // usigma0
+		SHA256_word s2 = (e >> 6) ^ (e << 26) ^ (e >> 11) ^ (e << 21) ^ (e >> 25) ^ (e << 7); // usigma1
+		SHA256_word t1 = s2 + ((e & f) ^ (~e & g)) + h + SHA256_CONST[i] + schedule[i];
+		SHA256_word t2 = s1 + ((a & b) ^ (a & c) ^ (b & c));
 
 		// move the values down and change them
 		h = g;
 		g = f;
 		f = e;
-		e = d + w1;
+		e = d + t1;
 		d = c;
 		c = b;
 		b = a;
-		a = w1 + w2;
+		a = t1 + t2;
 	}
 
 	// add the new values to the initial values

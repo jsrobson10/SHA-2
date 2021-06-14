@@ -10,25 +10,27 @@ const SHA1_word SHA1_INIT[] =
 
 const SHA1_word SHA1_CONST[] =
 {
-	0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6,
+	0x5a827999,0x5a827999,0x5a827999,0x5a827999,
+	0x5a827999,0x5a827999,0x5a827999,0x5a827999,
+	0x5a827999,0x5a827999,0x5a827999,0x5a827999,
+	0x5a827999,0x5a827999,0x5a827999,0x5a827999,
+	0x5a827999,0x5a827999,0x5a827999,0x5a827999,
+	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,
+	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,
+	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,
+	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,
+	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,
+	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,
+	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,
+	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,
+	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,
+	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,
+	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6,
+	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6,
+	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6,
+	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6,
+	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6,
 };
-
-/* OPERATIONS */
-
-SHA1_word SHA1_op_f(int t, SHA1_word a, SHA1_word b, SHA1_word c)
-{
-	if(t < 20)
-	{
-		return (a & b) ^ (~a & c);
-	}
-
-	if(t >= 40 && t < 60)
-	{
-		return (a & b) ^ (a & c) ^ (b & c);
-	}
-
-	return a ^ b ^ c;
-}
 
 /* FUNCTIONS */
 
@@ -65,8 +67,8 @@ void SHA1_op_process_chunk(SHA1* s)
 	// fill in the last 64 SHA1_word*s of the message schedule
 	for(int i = 16; i < 80; i++)
 	{
-		schedule[i] = schedule[i - 3] ^ schedule[i - 8] ^ schedule[i - 14] ^ schedule[i - 16];
-		schedule[i] = (schedule[i] << 1) | (schedule[i] >> 31);
+		SHA1_word w = schedule[i - 3] ^ schedule[i - 8] ^ schedule[i - 14] ^ schedule[i - 16];
+		schedule[i] = (w << 1) | (w >> 31);
 	}
 
 	// copy the values
@@ -79,13 +81,31 @@ void SHA1_op_process_chunk(SHA1* s)
 	// compress the message schedule
 	for(int i = 0; i < 80; i++)
 	{
-		SHA1_word w = ((a << 5) | (a >> 27)) + SHA1_op_f(i, b, c, d) + e + SHA1_CONST[i / 20] + schedule[i];
+		SHA1_word w1;
+
+		// function f(t, a, b, c)
+		if(i < 20)
+		{
+			w1 = (b & c) ^ (~b & d);
+		}
+
+		else if(i >= 40 && i < 60)
+		{
+			w1 = (b & c) ^ (b & d) ^ (c & d);
+		}
+
+		else
+		{
+			w1 = b ^ c ^ d;
+		}
+
+		SHA1_word w2 = ((a << 5) | (a >> 27)) + w1 + e + SHA1_CONST[i] + schedule[i];
 
 		e = d;
 		d = c;
 		c = (b << 30) | (b >> 2);
 		b = a;
-		a = w;
+		a = w2;
 	}
 
 	// add the new values to the initial values

@@ -35,54 +35,6 @@ const SHA512_word SHA512_CONST[] =
 	0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817,
 };
 
-/* COMPOUND OPERATIONS */
-
-SHA512_word SHA512_op_sigma0(SHA512_word x)
-{
-	SHA512_word a = (x >> 1) | (x << 63);
-	SHA512_word b = (x >> 8) | (x << 56);
-	SHA512_word c = x >> 7;
-
-	return a ^ b ^ c;
-}
-
-SHA512_word SHA512_op_sigma1(SHA512_word x)
-{
-	SHA512_word a = (x >> 19) | (x << 45);
-	SHA512_word b = (x >> 61) | (x << 3);
-	SHA512_word c = x >> 6;
-
-	return a ^ b ^ c;
-}
-
-SHA512_word SHA512_op_usigma0(SHA512_word x)
-{
-	SHA512_word a = (x >> 28) | (x << 36);
-	SHA512_word b = (x >> 34) | (x << 30);
-	SHA512_word c = (x >> 39) | (x << 25);
-
-	return a ^ b ^ c;
-}
-
-SHA512_word SHA512_op_usigma1(SHA512_word x)
-{
-	SHA512_word a = (x >> 14) | (x << 50);
-	SHA512_word b = (x >> 18) | (x << 46);
-	SHA512_word c = (x >> 41) | (x << 23);
-
-	return a ^ b ^ c;
-}
-
-SHA512_word SHA512_op_choice(SHA512_word a, SHA512_word b, SHA512_word c)
-{
-	return (a & b) ^ (~a & c);
-}
-
-SHA512_word SHA512_op_majority(SHA512_word a, SHA512_word b, SHA512_word c)
-{
-	return (a & b) ^ (a & c) ^ (b & c);
-}
-
 /* FUNCTIONS */
 
 void SHA512_op_copy(void* to, const void* from, SHA512_size len)
@@ -122,7 +74,11 @@ void SHA512_op_process_chunk(SHA512* s)
 	// fill in the last 80 words of the message schedule
 	for(int i = 16; i < 80; i++)
 	{
-		schedule[i] = SHA512_op_sigma1(schedule[i - 2]) + schedule[i - 7] + SHA512_op_sigma0(schedule[i - 15]) + schedule[i - 16];
+		SHA512_word s1 = schedule[i - 2];
+		SHA512_word s2 = schedule[i - 15];
+		SHA512_word s3 = (s2 >> 1) ^ (s2 << 63) ^ (s2 >> 8) ^ (s2 << 56) ^ (s2 >> 7); // sigma0
+		SHA512_word s4 = (s1 >> 19) ^ (s1 << 45) ^ (s1 >> 61) ^ (s1 << 3) ^ (s1 >> 6); // sigma1
+		schedule[i] = s3 + s4 + schedule[i - 7] + schedule[i - 16];
 	}
 
 	// make a copy of the values
@@ -138,18 +94,20 @@ void SHA512_op_process_chunk(SHA512* s)
 	// compress the message schedule
 	for(int i = 0; i < 80; i++)
 	{
-		SHA512_word w1 = SHA512_op_usigma1(e) + SHA512_op_choice(e, f, g) + h + SHA512_CONST[i] + schedule[i];
-		SHA512_word w2 = SHA512_op_usigma0(a) + SHA512_op_majority(a, b, c);
+		SHA512_word s1 = (a >> 28) ^ (a << 36) ^ (a >> 34) ^ (a << 30) ^ (a >> 39) ^ (a << 25); // usigma0
+		SHA512_word s2 = (e >> 14) ^ (e << 50) ^ (e >> 18) ^ (e << 46) ^ (e >> 41) ^ (e << 23); // usigma1
+		SHA512_word t1 = s2 + ((e & f) ^ (~e & g)) + h + SHA512_CONST[i] + schedule[i];
+		SHA512_word t2 = s1 + ((a & b) ^ (a & c) ^ (b & c));
 
 		// move the values down and change them
 		h = g;
 		g = f;
 		f = e;
-		e = d + w1;
+		e = d + t1;
 		d = c;
 		c = b;
 		b = a;
-		a = w1 + w2;
+		a = t1 + t2;
 	}
 
 	// add the new values to the initial values
